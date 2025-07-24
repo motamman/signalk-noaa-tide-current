@@ -23,44 +23,48 @@ export interface CurrentPrediction {
 
 export class NoaaApiService {
   private readonly baseUrl = 'https://api.tidesandcurrents.noaa.gov/api/prod';
+  private readonly metadataUrl = 'https://api.tidesandcurrents.noaa.gov/mdapi/prod';
   
   async getTideStations(): Promise<Station[]> {
     try {
-      // This endpoint doesn't return stations directly, so we'll use the metadata endpoint
-      const stationsResponse = await axios.get(`${this.baseUrl}/mdapi/prod/webapi/stations.json`, {
-        params: {
-          type: 'tidePredictions'
-        }
-      });
+      // Use the metadata endpoint to get all stations
+      const stationsResponse = await axios.get(`${this.metadataUrl}/webapi/stations.json`);
       
-      return stationsResponse.data.stations.map((station: any) => ({
+      // Filter for stations that support tide predictions
+      const tideStations = stationsResponse.data.stations.filter((station: any) => 
+        station.tideType || station.affiliations?.includes('NWLON') || station.type === 'primary'
+      );
+      
+      return tideStations.map((station: any) => ({
         id: station.id,
         name: station.name,
-        latitude: parseFloat(station.lat),
-        longitude: parseFloat(station.lng)
+        latitude: parseFloat(station.lat || station.latitude),
+        longitude: parseFloat(station.lng || station.longitude)
       }));
     } catch (error) {
-      // console.error('Error fetching tide stations:', error);
+      console.error('Error fetching tide stations:', error);
       return [];
     }
   }
   
   async getCurrentStations(): Promise<Station[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/mdapi/prod/webapi/stations.json`, {
-        params: {
-          type: 'currentPredictions'
-        }
-      });
+      const response = await axios.get(`${this.metadataUrl}/webapi/stations.json`);
       
-      return response.data.stations.map((station: any) => ({
+      // Filter for stations that support current predictions
+      const currentStations = response.data.stations.filter((station: any) => 
+        station.type === 'current' || station.products?.includes('currents') || 
+        station.affiliations?.includes('PORTS')
+      );
+      
+      return currentStations.map((station: any) => ({
         id: station.id,
         name: station.name,
-        latitude: parseFloat(station.lat),
-        longitude: parseFloat(station.lng)
+        latitude: parseFloat(station.lat || station.latitude),
+        longitude: parseFloat(station.lng || station.longitude)
       }));
     } catch (error) {
-      // console.error('Error fetching current stations:', error);
+      console.error('Error fetching current stations:', error);
       return [];
     }
   }
