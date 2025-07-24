@@ -1,0 +1,40 @@
+{
+  "type": "object",
+  "title": "NOAA Tide & Current Data Plugin",
+  "description": "Configuration for NOAA tide and current data plugin",
+  "properties": {
+    "daysToRetrieve": {
+      "type": "number",
+      "title": "Days to Retrieve",
+      "description": "Number of days of tide/current data to retrieve",
+      "default": 7,
+      "minimum": 1,
+      "maximum": 30
+    },
+    "enableRouteTracking": {
+      "type": "boolean",
+      "title": "Enable Route Tracking",
+      "description": "Track tide/current data along predicted navigation route",
+      "default": false
+    },
+    "routeHours": {
+      "type": "array",
+      "title": "Route Prediction Hours",
+      "description": "Hours ahead to predict route positions (1, 2, 3, 4)",
+      "items": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 24
+      },
+      "default": [1, 2, 3, 4]
+    },
+    "updateInterval": {
+      "type": "number",
+      "title": "Update Interval (minutes)",
+      "description": "How often to update tide/current data",
+      "default": 60,
+      "minimum": 5
+    }
+  },
+  "required": ["daysToRetrieve", "updateInterval"]
+}
