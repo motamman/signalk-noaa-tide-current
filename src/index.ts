@@ -17,13 +17,13 @@ interface PluginConfig {
   updateInterval: number;
 }
 
-function plugin() {
-  return {
+module.exports = function(app: ServerApp) {
+  const plugin = {
     id: 'signalk-noaa-tide-current',
     name: 'NOAA Tide & Current Data',
     description: 'Provides tide and current data from NOAA stations',
     
-    start(app: ServerApp, options: PluginConfig) {
+    start(options: PluginConfig, _restart: any) {
     app.debug('Starting NOAA Tide & Current plugin');
     
     const noaaApi = new NoaaApiService();
@@ -197,6 +197,6 @@ function plugin() {
     
     schema: () => require('../schema.json')
   };
-}
-
-module.exports = plugin;
+  
+  return plugin;
+};
