@@ -34,17 +34,25 @@ module.exports = function(app: ServerApp) {
     
     const updateData = async () => {
       try {
+        app.debug('updateData() called');
         const position = app.getSelfPath('navigation.position');
+        app.debug(`Position data: ${JSON.stringify(position)}`);
         if (!position?.value) {
           app.debug('No position available');
           return;
         }
         
         const { latitude, longitude } = position.value;
+        app.debug(`Position: ${latitude}, ${longitude}`);
         
         // Get nearest stations for tide and current
+        app.debug('Finding nearest tide station...');
         const tideStation = await stationFinder.findNearestTideStation(latitude, longitude);
+        app.debug(`Tide station: ${JSON.stringify(tideStation)}`);
+        
+        app.debug('Finding nearest current station...');
         const currentStation = await stationFinder.findNearestCurrentStation(latitude, longitude);
+        app.debug(`Current station: ${JSON.stringify(currentStation)}`);
         
         if (tideStation) {
           const tideData = await noaaApi.getTideData(tideStation.id, options.daysToRetrieve);
