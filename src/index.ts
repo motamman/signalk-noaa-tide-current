@@ -6,14 +6,6 @@ interface ServerApp {
   registerPutHandler: (_context: string, _path: string, _handler: any) => void;
 }
 
-interface Plugin {
-  id: string;
-  name: string;
-  description: string;
-  start: (_app: ServerApp, _options: any) => () => void;
-  stop: () => void;
-  schema: () => any;
-}
 import { NoaaApiService } from './noaa-api';
 import { StationFinder } from './station-finder';
 import { RouteTracker } from './route-tracker';
@@ -25,12 +17,13 @@ interface PluginConfig {
   updateInterval: number;
 }
 
-const plugin: Plugin = {
-  id: 'signalk-tide-current',
-  name: 'NOAA Tide & Current Data',
-  description: 'Provides tide and current data from NOAA stations',
-  
-  start(app: ServerApp, options: PluginConfig) {
+function plugin() {
+  return {
+    id: 'signalk-noaa-tide-current',
+    name: 'NOAA Tide & Current Data',
+    description: 'Provides tide and current data from NOAA stations',
+    
+    start(app: ServerApp, options: PluginConfig) {
     app.debug('Starting NOAA Tide & Current plugin');
     
     const noaaApi = new NoaaApiService();
@@ -99,7 +92,7 @@ const plugin: Plugin = {
           
           app.handleMessage('plugin', {
             updates: [{
-              source: { label: plugin.id },
+              source: { label: 'signalk-noaa-tide-current' },
               timestamp: new Date().toISOString(),
               values: tideValues
             }]
@@ -156,7 +149,7 @@ const plugin: Plugin = {
           
           app.handleMessage('plugin', {
             updates: [{
-              source: { label: plugin.id },
+              source: { label: 'signalk-noaa-tide-current' },
               timestamp: new Date().toISOString(),
               values: currentValues
             }]
@@ -196,13 +189,14 @@ const plugin: Plugin = {
         clearInterval(updateTimer);
       }
     };
-  },
-  
-  stop() {
-    // Cleanup handled by start function return
-  },
-  
-  schema: () => require('../schema.json')
-};
+    },
+    
+    stop() {
+      // Cleanup handled by start function return
+    },
+    
+    schema: () => require('../schema.json')
+  };
+}
 
 module.exports = plugin;
