@@ -49,8 +49,7 @@ export class NoaaApiService {
   
   async getCurrentStations(): Promise<Station[]> {
     try {
-      // Get current prediction stations from the currents endpoint
-      const response = await axios.get(`${this.metadataUrl}/webapi/currents/stations.json`);
+      const response = await axios.get(`${this.metadataUrl}/webapi/stations.json?type=currentpredictions`);
       
       return response.data.stations.map((station: any) => ({
         id: station.id,
