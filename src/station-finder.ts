@@ -31,13 +31,13 @@ export class StationFinder {
     }
     
     try {
-      // console.log('Updating station cache...');
+      console.log('Updating station cache...');
       this.tideStations = await this._noaaApi.getTideStations();
       this.currentStations = await this._noaaApi.getCurrentStations();
       this.lastUpdate = now;
-      // console.log(`Loaded ${this.tideStations.length} tide stations and ${this.currentStations.length} current stations`);
+      console.log(`Loaded ${this.tideStations.length} tide stations and ${this.currentStations.length} current stations`);
     } catch (error) {
-      // Failed to update station cache - error handled silently
+      console.error('Failed to update station cache:', error);
     }
   }
   
@@ -75,7 +75,11 @@ export class StationFinder {
   async findNearestCurrentStation(latitude: number, longitude: number): Promise<Station | null> {
     await this.updateStationCache();
     
+    console.log(`Looking for current station near ${latitude}, ${longitude}`);
+    console.log(`Available current stations: ${this.currentStations.length}`);
+    
     if (this.currentStations.length === 0) {
+      console.log('No current stations available');
       return null;
     }
     
@@ -90,16 +94,21 @@ export class StationFinder {
     // Try each station in order of distance until we find one with data
     for (const station of stationsByDistance) {
       try {
+        console.log(`Testing current station ${station.id} (${station.name}) at distance ${station.distance?.toFixed(2)}km`);
         const testData = await this._noaaApi.getCurrentData(station.id, 1);
         if (testData && testData.length > 0) {
+          console.log(`Found working current station: ${station.id} with ${testData.length} data points`);
           return station;
+        } else {
+          console.log(`Station ${station.id} returned no current data`);
         }
       } catch (error) {
-        // This station doesn't have current data, try the next one
+        console.log(`Station ${station.id} failed:`, error);
         continue;
       }
     }
     
+    console.log('No working current stations found');
     return null;
   }
   

@@ -136,7 +136,7 @@ export class NoaaApiService {
         type: pred.Type === 'slack' ? 'slack' : 'max'
       }));
     } catch (error) {
-      // console.error(`Error fetching current data for station ${stationId}:`, error);
+      console.error(`Error fetching current data for station ${stationId}:`, error);
       return [];
     }
   }
