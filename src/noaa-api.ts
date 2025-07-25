@@ -119,11 +119,11 @@ export class NoaaApiService {
         }
       });
       
-      if (!response.data.current_predictions) {
+      if (!response.data.current_predictions || !response.data.current_predictions.cp) {
         return [];
       }
       
-      return response.data.current_predictions.map((pred: any) => ({
+      return response.data.current_predictions.cp.map((pred: any) => ({
         time: pred.Time,
         velocity: parseFloat(pred.Velocity_Major || '0'),
         direction: parseFloat(pred.meanFloodDir || '0'),
