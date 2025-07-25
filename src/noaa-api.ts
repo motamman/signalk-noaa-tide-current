@@ -14,11 +14,22 @@ export interface TidePrediction {
   type: 'H' | 'L'; // High or Low
 }
 
+export interface TideObservation {
+  time: string;
+  height: number;
+}
+
 export interface CurrentPrediction {
   time: string;
   velocity: number;
   direction: number;
   type: 'slack' | 'max';
+}
+
+export interface CurrentObservation {
+  time: string;
+  speed: number;
+  direction: number;
 }
 
 export class NoaaApiService {
@@ -131,6 +142,72 @@ export class NoaaApiService {
       }));
     } catch (error) {
       console.error(`Error fetching current data for station ${stationId}:`, error);
+      return [];
+    }
+  }
+
+  async getRealTimeTideData(stationId: string, hours: number = 24): Promise<TideObservation[]> {
+    try {
+      const endDate = new Date();
+      const startDate = new Date(endDate.getTime() - hours * 60 * 60 * 1000);
+      
+      const response = await axios.get(`${this.baseUrl}/datagetter`, {
+        params: {
+          product: 'water_level',
+          application: 'SignalK',
+          format: 'json',
+          station: stationId,
+          begin_date: startDate.toISOString().slice(0, 16).replace('T', ' '),
+          end_date: endDate.toISOString().slice(0, 16).replace('T', ' '),
+          datum: 'MLLW',
+          units: 'metric',
+          time_zone: 'gmt'
+        }
+      });
+      
+      if (!response.data.data) {
+        return [];
+      }
+      
+      return response.data.data.map((obs: any) => ({
+        time: obs.t,
+        height: parseFloat(obs.v)
+      }));
+    } catch (error) {
+      console.error(`Error fetching real-time tide data for station ${stationId}:`, error);
+      return [];
+    }
+  }
+
+  async getRealTimeCurrentData(stationId: string, hours: number = 24): Promise<CurrentObservation[]> {
+    try {
+      const endDate = new Date();
+      const startDate = new Date(endDate.getTime() - hours * 60 * 60 * 1000);
+      
+      const response = await axios.get(`${this.baseUrl}/datagetter`, {
+        params: {
+          product: 'currents',
+          application: 'SignalK',
+          format: 'json',
+          station: stationId,
+          begin_date: startDate.toISOString().slice(0, 16).replace('T', ' '),
+          end_date: endDate.toISOString().slice(0, 16).replace('T', ' '),
+          units: 'metric',
+          time_zone: 'gmt'
+        }
+      });
+      
+      if (!response.data.data) {
+        return [];
+      }
+      
+      return response.data.data.map((obs: any) => ({
+        time: obs.t,
+        speed: parseFloat(obs.s || '0'),
+        direction: parseFloat(obs.d || '0')
+      }));
+    } catch (error) {
+      console.error(`Error fetching real-time current data for station ${stationId}:`, error);
       return [];
     }
   }
