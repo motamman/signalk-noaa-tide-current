@@ -48,18 +48,28 @@ export class StationFinder {
       return null;
     }
     
-    let nearestStation: Station | null = null;
-    let minDistance = Infinity;
+    // Sort stations by distance
+    const stationsByDistance = this.tideStations
+      .map(station => ({
+        ...station,
+        distance: this.calculateDistance(latitude, longitude, station.latitude, station.longitude)
+      }))
+      .sort((a, b) => a.distance - b.distance);
     
-    for (const station of this.tideStations) {
-      const distance = this.calculateDistance(latitude, longitude, station.latitude, station.longitude);
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearestStation = { ...station, distance };
+    // Try each station in order of distance until we find one with data
+    for (const station of stationsByDistance) {
+      try {
+        const testData = await this._noaaApi.getTideData(station.id, 1);
+        if (testData && testData.length > 0) {
+          return station;
+        }
+      } catch (error) {
+        // This station doesn't have tide data, try the next one
+        continue;
       }
     }
     
-    return nearestStation;
+    return null;
   }
   
   async findNearestCurrentStation(latitude: number, longitude: number): Promise<Station | null> {
@@ -69,18 +79,28 @@ export class StationFinder {
       return null;
     }
     
-    let nearestStation: Station | null = null;
-    let minDistance = Infinity;
+    // Sort stations by distance
+    const stationsByDistance = this.currentStations
+      .map(station => ({
+        ...station,
+        distance: this.calculateDistance(latitude, longitude, station.latitude, station.longitude)
+      }))
+      .sort((a, b) => a.distance - b.distance);
     
-    for (const station of this.currentStations) {
-      const distance = this.calculateDistance(latitude, longitude, station.latitude, station.longitude);
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearestStation = { ...station, distance };
+    // Try each station in order of distance until we find one with data
+    for (const station of stationsByDistance) {
+      try {
+        const testData = await this._noaaApi.getCurrentData(station.id, 1);
+        if (testData && testData.length > 0) {
+          return station;
+        }
+      } catch (error) {
+        // This station doesn't have current data, try the next one
+        continue;
       }
     }
     
-    return nearestStation;
+    return null;
   }
   
   async findStationsAlongRoute(route: Array<{lat: number, lon: number}>): Promise<{
