@@ -55,7 +55,7 @@ export class NoaaApiService {
       const currentStations = response.data.stations.filter((station: any) => 
         station.type === 'current' || 
         (Array.isArray(station.products) && station.products.includes('currents')) ||
-        (Array.isArray(station.affiliations) && station.affiliations.includes('PORTS'))
+        (station.affiliations && station.affiliations.includes('PORTS'))
       );
       
       return currentStations.map((station: any) => ({
