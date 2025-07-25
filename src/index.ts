@@ -100,9 +100,19 @@ module.exports = function(app: ServerApp) {
           
           app.handleMessage('plugin', {
             updates: [{
-              source: { label: 'signalk-noaa-tide-current' },
+              $source: 'signalk-noaa-tide-current',
               timestamp: new Date().toISOString(),
-              values: tideValues
+              values: tideValues,
+              meta: [
+                {
+                  path: 'environment.tide.station.distance',
+                  value: { units: 'm' }
+                },
+                ...tideData.map((_, index) => ({
+                  path: `environment.tide.predictions.${index}.height`,
+                  value: { units: 'm' }
+                }))
+              ]
             }]
           });
         }
@@ -142,11 +152,11 @@ module.exports = function(app: ServerApp) {
               },
               {
                 path: `environment.current.predictions.${index}.velocity`,
-                value: prediction.velocity
+                value: prediction.velocity / 100 // Convert cm/s to m/s
               },
               {
                 path: `environment.current.predictions.${index}.direction`,
-                value: prediction.direction
+                value: prediction.direction * (Math.PI / 180) // Convert degrees to radians
               },
               {
                 path: `environment.current.predictions.${index}.type`,
@@ -157,9 +167,25 @@ module.exports = function(app: ServerApp) {
           
           app.handleMessage('plugin', {
             updates: [{
-              source: { label: 'signalk-noaa-tide-current' },
+              $source: 'signalk-noaa-tide-current',
               timestamp: new Date().toISOString(),
-              values: currentValues
+              values: currentValues,
+              meta: [
+                {
+                  path: 'environment.current.station.distance',
+                  value: { units: 'm' }
+                },
+                ...currentData.map((_, index) => [
+                  {
+                    path: `environment.current.predictions.${index}.velocity`,
+                    value: { units: 'm/s' }
+                  },
+                  {
+                    path: `environment.current.predictions.${index}.direction`,
+                    value: { units: 'rad' }
+                  }
+                ]).flat()
+              ]
             }]
           });
         }
