@@ -1,10 +1,12 @@
 import { NoaaApiService, Station } from './noaa-api';
 
 export class StationFinder {
-  private tideStations: Station[] = [];
-  private currentStations: Station[] = [];
+  private nearbyTideStations: Station[] = [];
+  private nearbyCurrentStations: Station[] = [];
   private lastUpdate = 0;
-  private readonly cacheTimeout = 24 * 60 * 60 * 1000; // 24 hours
+  private lastPosition: { lat: number, lon: number } | null = null;
+  private readonly cacheTimeout = 6 * 60 * 60 * 1000; // 6 hours
+  private readonly positionThreshold = 0.1; // degrees (~11km)
   
   constructor(private _noaaApi: NoaaApiService) {}
   
@@ -24,40 +26,86 @@ export class StationFinder {
     return degrees * (Math.PI / 180);
   }
   
-  private async updateStationCache(): Promise<void> {
+  private async updateNearbyStationsCache(latitude: number, longitude: number): Promise<void> {
     const now = Date.now();
-    if (now - this.lastUpdate < this.cacheTimeout) {
-      return; // Cache is still valid
+    const positionChanged = !this.lastPosition || 
+      Math.abs(this.lastPosition.lat - latitude) > this.positionThreshold ||
+      Math.abs(this.lastPosition.lon - longitude) > this.positionThreshold;
+    
+    if (!positionChanged && now - this.lastUpdate < this.cacheTimeout) {
+      return; // Cache is still valid and position hasn't changed significantly
     }
     
     try {
-      console.log('Updating station cache...');
-      this.tideStations = await this._noaaApi.getTideStations();
-      this.currentStations = await this._noaaApi.getCurrentStations();
+      console.log(`Updating nearby stations cache for position ${latitude}, ${longitude}...`);
+      
+      // Find a reference station first - use a well-known station or find closest from small sample
+      const referenceStation = await this.findReferenceStation(latitude, longitude);
+      if (!referenceStation) {
+        console.error('Could not find reference station');
+        return;
+      }
+      
+      console.log(`Using reference station ${referenceStation.id} (${referenceStation.name})`);
+      
+      // Get nearby stations within 50 nautical miles
+      this.nearbyTideStations = await this._noaaApi.getNearbyStations(referenceStation.id, 50, 'tide');
+      this.nearbyCurrentStations = await this._noaaApi.getNearbyStations(referenceStation.id, 50, 'current');
+      
       this.lastUpdate = now;
-      console.log(`Loaded ${this.tideStations.length} tide stations and ${this.currentStations.length} current stations`);
+      this.lastPosition = { lat: latitude, lon: longitude };
+      
+      console.log(`Loaded ${this.nearbyTideStations.length} nearby tide stations and ${this.nearbyCurrentStations.length} nearby current stations`);
     } catch (error) {
-      console.error('Failed to update station cache:', error);
+      console.error('Failed to update nearby stations cache:', error);
+    }
+  }
+  
+  private async findReferenceStation(latitude: number, longitude: number): Promise<Station | null> {
+    try {
+      // Use a small sample of well-known stations to find closest reference point
+      const sampleStations = await this._noaaApi.getTideStations();
+      
+      if (sampleStations.length === 0) {
+        return null;
+      }
+      
+      // Find closest station from the sample
+      let closestStation = sampleStations[0];
+      let minDistance = this.calculateDistance(latitude, longitude, closestStation.latitude, closestStation.longitude);
+      
+      for (const station of sampleStations.slice(1, Math.min(100, sampleStations.length))) {
+        const distance = this.calculateDistance(latitude, longitude, station.latitude, station.longitude);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestStation = station;
+        }
+      }
+      
+      return { ...closestStation, distance: minDistance };
+    } catch (error) {
+      console.error('Error finding reference station:', error);
+      return null;
     }
   }
   
   async findNearestTideStation(latitude: number, longitude: number): Promise<Station | null> {
-    await this.updateStationCache();
+    await this.updateNearbyStationsCache(latitude, longitude);
     
-    if (this.tideStations.length === 0) {
+    if (this.nearbyTideStations.length === 0) {
       return null;
     }
     
     // Sort stations by distance
-    const stationsByDistance = this.tideStations
+    const stationsByDistance = this.nearbyTideStations
       .map(station => ({
         ...station,
         distance: this.calculateDistance(latitude, longitude, station.latitude, station.longitude)
       }))
       .sort((a, b) => a.distance - b.distance);
     
-    // Try each station in order of distance until we find one with data
-    for (const station of stationsByDistance) {
+    // Try only the 3 closest stations to avoid excessive API calls
+    for (const station of stationsByDistance.slice(0, 3)) {
       try {
         const testData = await this._noaaApi.getTideData(station.id, 1);
         if (testData && testData.length > 0) {
@@ -73,26 +121,26 @@ export class StationFinder {
   }
   
   async findNearestCurrentStation(latitude: number, longitude: number): Promise<Station | null> {
-    await this.updateStationCache();
+    await this.updateNearbyStationsCache(latitude, longitude);
     
     console.log(`Looking for current station near ${latitude}, ${longitude}`);
-    console.log(`Available current stations: ${this.currentStations.length}`);
+    console.log(`Available nearby current stations: ${this.nearbyCurrentStations.length}`);
     
-    if (this.currentStations.length === 0) {
-      console.log('No current stations available');
+    if (this.nearbyCurrentStations.length === 0) {
+      console.log('No nearby current stations available');
       return null;
     }
     
     // Sort stations by distance
-    const stationsByDistance = this.currentStations
+    const stationsByDistance = this.nearbyCurrentStations
       .map(station => ({
         ...station,
         distance: this.calculateDistance(latitude, longitude, station.latitude, station.longitude)
       }))
       .sort((a, b) => a.distance - b.distance);
     
-    // Try each station in order of distance until we find one with data
-    for (const station of stationsByDistance) {
+    // Try only the 3 closest stations to avoid excessive API calls
+    for (const station of stationsByDistance.slice(0, 3)) {
       try {
         console.log(`Testing current station ${station.id} (${station.name}) at distance ${station.distance?.toFixed(2)}km`);
         const testData = await this._noaaApi.getCurrentData(station.id, 1);
@@ -108,7 +156,7 @@ export class StationFinder {
       }
     }
     
-    console.log('No working current stations found');
+    console.log('No working nearby current stations found');
     return null;
   }
   
@@ -116,7 +164,10 @@ export class StationFinder {
     tideStations: Station[],
     currentStations: Station[]
   }> {
-    await this.updateStationCache();
+    // For route tracking, we'll use the first point to update nearby cache
+    if (route.length > 0) {
+      await this.updateNearbyStationsCache(route[0].lat, route[0].lon);
+    }
     
     const foundTideStations = new Set<string>();
     const foundCurrentStations = new Set<string>();

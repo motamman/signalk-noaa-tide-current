@@ -211,4 +211,38 @@ export class NoaaApiService {
       return [];
     }
   }
+
+  async getNearbyStations(referenceStationId: string, radiusNauticalMiles: number, type: 'tide' | 'current'): Promise<Station[]> {
+    try {
+      const response = await axios.get(`${this.metadataUrl}/webapi/stations/${referenceStationId}/nearby.json`, {
+        params: {
+          radius: radiusNauticalMiles
+        }
+      });
+      
+      if (!response.data.stations) {
+        return [];
+      }
+      
+      // Filter stations by type based on their capabilities
+      const filteredStations = response.data.stations.filter((station: any) => {
+        if (type === 'tide') {
+          return station.tideType || station.affiliations?.includes('NWLON') || station.type === 'primary';
+        } else { // current
+          return station.currentType || station.type === 'current' || station.type === 'currentprediction';
+        }
+      });
+      
+      return filteredStations.map((station: any) => ({
+        id: station.id,
+        name: station.name,
+        latitude: parseFloat(station.lat || station.latitude),
+        longitude: parseFloat(station.lng || station.longitude),
+        distance: station.distance // NOAA provides distance in nautical miles
+      }));
+    } catch (error) {
+      console.error(`Error fetching nearby stations for ${referenceStationId}:`, error);
+      return [];
+    }
+  }
 }
