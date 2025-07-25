@@ -53,8 +53,9 @@ export class NoaaApiService {
       
       // Filter for stations that support current predictions
       const currentStations = response.data.stations.filter((station: any) => 
-        station.type === 'current' || station.products?.includes('currents') || 
-        station.affiliations?.includes('PORTS')
+        station.type === 'current' || 
+        (Array.isArray(station.products) && station.products.includes('currents')) ||
+        (Array.isArray(station.affiliations) && station.affiliations.includes('PORTS'))
       );
       
       return currentStations.map((station: any) => ({
