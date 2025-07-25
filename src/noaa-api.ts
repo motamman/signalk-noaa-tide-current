@@ -49,16 +49,10 @@ export class NoaaApiService {
   
   async getCurrentStations(): Promise<Station[]> {
     try {
-      const response = await axios.get(`${this.metadataUrl}/webapi/stations.json`);
+      // Get current prediction stations from the currents endpoint
+      const response = await axios.get(`${this.metadataUrl}/webapi/currents/stations.json`);
       
-      // Filter for stations that support current predictions
-      const currentStations = response.data.stations.filter((station: any) => 
-        station.type === 'current' || 
-        (Array.isArray(station.products) && station.products.includes('currents')) ||
-        (station.affiliations && station.affiliations.includes('PORTS'))
-      );
-      
-      return currentStations.map((station: any) => ({
+      return response.data.stations.map((station: any) => ({
         id: station.id,
         name: station.name,
         latitude: parseFloat(station.lat || station.latitude),
